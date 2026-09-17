@@ -1,0 +1,18 @@
+[versions]
+springBoot = "4.1.1"
+testcontainers = "1.21.4"
+archunit = "1.5.0"
+lombok = "1.18.48"
+
+[libraries]
+springBootBom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+testcontainersBom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+
+# Spring Boot 4 는 Jackson 3(tools.jackson)이 기본
+jacksonDatabind = { module = "tools.jackson.core:jackson-databind" }
+
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+archunitJunit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+[plugins]
+springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }

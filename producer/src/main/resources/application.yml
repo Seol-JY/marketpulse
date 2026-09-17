@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: marketpulse-producer
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  lifecycle:
+    timeout-per-shutdown-phase: 45s
+
+server:
+  port: 8080
+  shutdown: graceful
+
+toss:
+  base-url: https://openapi.tossinvest.com
+  ws-url: wss://openapi-ws.tossinvest.com/ws/v1
+  client-id: ${TOSS_CLIENT_ID}
+  client-secret: ${TOSS_CLIENT_SECRET}
+  symbols:
+    KR: ${TOSS_SYMBOLS_KR:}
+    US: ${TOSS_SYMBOLS_US:}
+
+ingest:
+  producer-id: ${INGEST_PRODUCER_ID:prod-a}
+  trade-queue-size: 20000
+  orderbook-queue-size: 100000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: marketpulse-producer
+
+logging:
+  level:
+    pro.seol.marketpulse: INFO
