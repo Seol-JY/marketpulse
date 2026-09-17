@@ -55,18 +55,21 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # ghcr 은 소문자만 받는데 owner 가 대문자를 포함함
+      - id: image
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/marketpulse-${{ matrix.module }}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.module }}
           file: ${{ matrix.module }}/Dockerfile
           push: true
           # 태그는 커밋 SHA 고정. latest 미사용으로 롤백 지점 명확
-          tags: ghcr.io/${{ github.repository_owner }}/marketpulse-${{ matrix.module }}:${{ github.sha }}
+          tags: ${{ steps.image.outputs.repo }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: 요약
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/marketpulse-${{ matrix.module }}:${{ github.sha }}
+          IMAGE: ${{ steps.image.outputs.repo }}:${{ github.sha }}
         run: |
           {
             echo "### 이미지 배포됨"
