@@ -38,7 +38,8 @@ import pro.seol.marketpulse.producer.config.MarketEventSerializer;
 class KafkaMarketEventPublisherTest {
 
     @Container
-    static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka-native:4.1.0");
+    static final KafkaContainer KAFKA =
+            new KafkaContainer("apache/kafka-native:4.1.0").withStartupTimeout(Duration.ofMinutes(3));
 
     private static KafkaMarketEventPublisher publisher() {
         final Map<String, Object> config = new HashMap<>();
