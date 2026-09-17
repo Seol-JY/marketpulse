@@ -30,6 +30,12 @@ class TossAccessTokenProvider implements AccessTokenProvider {
     }
 
     @Override
+    public synchronized void invalidate() {
+        cached = null;
+        expiresAt = Instant.EPOCH;
+    }
+
+    @Override
     public synchronized String token() {
         if (cached != null && Instant.now().isBefore(expiresAt.minus(RENEW_MARGIN))) {
             return cached;

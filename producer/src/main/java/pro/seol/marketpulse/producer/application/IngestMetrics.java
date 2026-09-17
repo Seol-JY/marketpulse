@@ -39,6 +39,10 @@ public class IngestMetrics {
         registry.counter("marketpulse.malformed").increment();
     }
 
+    public void tokenRefreshed(final String connection) {
+        registry.counter("marketpulse.token.refresh", "connection", connection).increment();
+    }
+
     public void reconnected(final String connection) {
         registry.counter("marketpulse.reconnect", "connection", connection).increment();
     }

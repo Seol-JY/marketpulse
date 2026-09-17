@@ -8,45 +8,46 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
 import lombok.extern.slf4j.Slf4j;
 
+import pro.seol.marketpulse.producer.application.AccessTokenProvider;
+
 @Slf4j
 class TossConnection {
 
     private static final Duration HANDSHAKE_TIMEOUT = Duration.ofSeconds(20);
-    private static final Duration MIN_BACKOFF = Duration.ofSeconds(1);
-    private static final Duration MAX_BACKOFF = Duration.ofSeconds(60);
 
     private final String name;
     private final URI uri;
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduler;
-    private final TokenSupplier tokens;
+    private final AccessTokenProvider tokens;
     private final BiConsumer<String, String> onMessage;
     private final Runnable onReconnect;
+    private final Runnable onTokenRefresh;
 
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicReference<WebSocket> socket = new AtomicReference<>();
     private final AtomicReference<String> declaration = new AtomicReference<>();
     // 재연결마다 새로 발급. 겹침 구간을 사후에 찾는 유일한 단서
     private final AtomicReference<String> connectionId = new AtomicReference<>();
-    private volatile Duration backoff = MIN_BACKOFF;
-
-    interface TokenSupplier {
-        String get();
-    }
+    private final AtomicInteger consecutiveFailures = new AtomicInteger();
+    private final ReconnectPolicy policy = ReconnectPolicy.DEFAULT;
+    private volatile Duration backoff = ReconnectPolicy.DEFAULT.minBackoff();
 
     TossConnection(
             final String name,
             final URI uri,
             final HttpClient httpClient,
             final ScheduledExecutorService scheduler,
-            final TokenSupplier tokens,
+            final AccessTokenProvider tokens,
             final BiConsumer<String, String> onMessage,
-            final Runnable onReconnect) {
+            final Runnable onReconnect,
+            final Runnable onTokenRefresh) {
         this.name = name;
         this.uri = uri;
         this.httpClient = httpClient;
@@ -54,6 +55,7 @@ class TossConnection {
         this.tokens = tokens;
         this.onMessage = onMessage;
         this.onReconnect = onReconnect;
+        this.onTokenRefresh = onTokenRefresh;
         newConnectionId();
     }
 
@@ -105,17 +107,19 @@ class TossConnection {
         }
         httpClient
                 .newWebSocketBuilder()
-                .header("Authorization", "Bearer " + tokens.get())
+                .header("Authorization", "Bearer " + tokens.token())
                 .connectTimeout(HANDSHAKE_TIMEOUT)
                 .buildAsync(uri, new Listener())
                 .whenComplete((ws, error) -> {
                     if (error != null) {
                         log.warn("연결 실패 connection={} 재시도={}초 후", name, backoff.toSeconds(), error);
+                        refreshTokenIfStuck();
                         scheduleReconnect();
                         return;
                     }
                     socket.set(ws);
-                    backoff = MIN_BACKOFF;
+                    backoff = policy.minBackoff();
+                    consecutiveFailures.set(0);
                     log.info("연결 성공 connection={} connectionId={}", name, connectionId.get());
                     final String payload = declaration.get();
                     if (payload != null) {
@@ -124,12 +128,22 @@ class TossConnection {
                 });
     }
 
+    // 토큰이 죽으면 핸드셰이크만 계속 실패하므로 캐시를 버려 재발급을 유도
+    private void refreshTokenIfStuck() {
+        if (policy.shouldRefreshToken(consecutiveFailures.incrementAndGet())) {
+            consecutiveFailures.set(0);
+            tokens.invalidate();
+            onTokenRefresh.run();
+            log.warn("연속 실패로 토큰 재발급 connection={}", name);
+        }
+    }
+
     private void scheduleReconnect() {
         if (!running.get()) {
             return;
         }
         final Duration delay = backoff;
-        backoff = Duration.ofSeconds(Math.min(backoff.toSeconds() * 2, MAX_BACKOFF.toSeconds()));
+        backoff = policy.nextBackoff(backoff);
         scheduler.schedule(this::reconnect, delay.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 

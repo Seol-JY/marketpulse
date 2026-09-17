@@ -82,9 +82,10 @@ class MarketDataRunner implements SmartLifecycle {
                 URI.create(properties.wsUrl()),
                 httpClient,
                 scheduler,
-                tokens::token,
+                tokens,
                 useCase::onMessage,
-                () -> metrics.reconnected(name));
+                () -> metrics.reconnected(name),
+                () -> metrics.tokenRefreshed(name));
     }
 
     private void pingAll() {
