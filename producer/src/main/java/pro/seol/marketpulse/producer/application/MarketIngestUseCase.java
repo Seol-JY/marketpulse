@@ -58,11 +58,11 @@ public class MarketIngestUseCase {
     }
 
     public Optional<String> declarationFor(final String connectionId) {
-        return MarketCalendar.openAt(clock.instant())
-                .flatMap(market -> SubscriptionPlan.forMarket(market, symbols.getOrDefault(market, List.of())).stream()
-                        .filter(plan -> !plan.symbols().isEmpty())
-                        .filter(plan -> plan.connectionId().equals(connectionId))
-                        .findFirst())
+        final Market market = MarketCalendar.marketAt(clock.instant());
+        return SubscriptionPlan.forMarket(market, symbols.getOrDefault(market, List.of())).stream()
+                .filter(plan -> !plan.symbols().isEmpty())
+                .filter(plan -> plan.connectionId().equals(connectionId))
+                .findFirst()
                 .map(SubscriptionPlan::declaration);
     }
 

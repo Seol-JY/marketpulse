@@ -156,15 +156,31 @@ class MarketIngestUseCaseTest {
         }
 
         @Test
-        void 장이_닫혀_있으면_선언하지_않는다() {
-            // given  토요일 새벽
-            Clock closed = Clock.fixed(Instant.parse("2026-09-19T20:00:00Z"), ZoneOffset.UTC);
+        void 한국_창_시간에는_한국을_선언한다() {
+            // given  수요일 10:00 KST
+            Clock korean = Clock.fixed(Instant.parse("2026-09-16T01:00:00Z"), ZoneOffset.UTC);
             MarketIngestUseCase sut = new MarketIngestUseCase(
                     new RecordingPublisher(),
                     new IngestMetrics(new SimpleMeterRegistry()),
-                    closed,
+                    korean,
                     "prod-a",
-                    Map.of(Market.US, List.of("NVDA")),
+                    Map.of(Market.KR, List.of("005930"), Market.US, List.of("NVDA")),
+                    10,
+                    10);
+
+            // when & then
+            assertThat(sut.declarationFor("A")).get().asString().contains("trade:kr");
+        }
+
+        @Test
+        void 심볼이_없는_시장이면_선언하지_않는다() {
+            // given  미국장 시간인데 미국 심볼이 비어 있음
+            MarketIngestUseCase sut = new MarketIngestUseCase(
+                    new RecordingPublisher(),
+                    new IngestMetrics(new SimpleMeterRegistry()),
+                    CLOCK,
+                    "prod-a",
+                    Map.of(Market.KR, List.of("005930")),
                     10,
                     10);
 
